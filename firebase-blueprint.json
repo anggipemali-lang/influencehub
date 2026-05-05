@@ -1,0 +1,96 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Base profile for all users (Brand, Influencer, Admin)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["brand", "influencer", "admin"] },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "InfluencerDetails": {
+      "title": "Influencer Specific Details",
+      "description": "Detailed metrics and info for influencers",
+      "type": "object",
+      "properties": {
+        "niche": { "type": "array", "items": { "type": "string" } },
+        "platforms": { "type": "array", "items": { "type": "string" } },
+        "followersCount": { "type": "number" },
+        "engagementRate": { "type": "number" },
+        "location": { "type": "string" },
+        "verified": { "type": "boolean" },
+        "pricing": {
+          "type": "object",
+          "properties": {
+            "post": { "type": "number" },
+            "story": { "type": "number" },
+            "video": { "type": "number" }
+          }
+        },
+        "audienceDemographics": {
+          "type": "object",
+          "properties": {
+            "gender": {
+              "type": "object",
+              "properties": {
+                "male": { "type": "number" },
+                "female": { "type": "number" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Campaign": {
+      "title": "Marketing Campaign",
+      "description": "Campaign created by brands",
+      "type": "object",
+      "properties": {
+        "brandId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "budget": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "active", "completed", "cancelled"] },
+        "targetAudience": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Offer": {
+      "title": "Collaboration Offer",
+      "description": "Offer sent from brand to influencer",
+      "type": "object",
+      "properties": {
+        "brandId": { "type": "string" },
+        "influencerId": { "type": "string" },
+        "campaignId": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/influencerDetails/{userId}": {
+      "schema": "InfluencerDetails",
+      "description": "Influencer performance metrics"
+    },
+    "/campaigns/{campaignId}": {
+      "schema": "Campaign",
+      "description": "Marketing campaigns"
+    },
+    "/offers/{offerId}": {
+      "schema": "Offer",
+      "description": "Collaboration offers between brands and influencers"
+    }
+  }
+}

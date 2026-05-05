@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply antialiased font-sans bg-[#F5F7FA] text-slate-900;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+:root {
+  --primary: #A7D8FF;
+  --primary-foreground: #003366;
+  --secondary: #F5F7FA;
+  --accent: #A7D8FF;
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-6 py-3 bg-[#A7D8FF] text-[#003366] font-semibold rounded-xl transition-all hover:opacity-90 active:scale-95 shadow-sm;
+  }
+  
+  .btn-secondary {
+    @apply px-6 py-3 bg-white text-slate-700 font-semibold rounded-xl border border-slate-200 transition-all hover:bg-slate-50 active:scale-95 shadow-sm;
+  }
+  
+  .card-premium {
+    @apply bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100;
+  }
+}
