@@ -59,7 +59,22 @@
         "status": { "type": "string", "enum": ["draft", "active", "completed", "cancelled"] },
         "targetAudience": { "type": "object" },
         "createdAt": { "type": "string", "format": "date-time" }
-      }
+      },
+      "required": ["brandId", "title", "budget", "status"]
+    },
+    "Application": {
+      "title": "Campaign Application",
+      "description": "Application from influencer to join a campaign",
+      "type": "object",
+      "properties": {
+        "campaignId": { "type": "string" },
+        "influencerId": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "appliedAt": { "type": "string", "format": "date-time" },
+        "reviewedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["campaignId", "influencerId", "status", "appliedAt"]
     },
     "Offer": {
       "title": "Collaboration Offer",
@@ -87,6 +102,10 @@
     "/campaigns/{campaignId}": {
       "schema": "Campaign",
       "description": "Marketing campaigns"
+    },
+    "/applications/{applicationId}": {
+      "schema": "Application",
+      "description": "Influencer applications for campaigns"
     },
     "/offers/{offerId}": {
       "schema": "Offer",

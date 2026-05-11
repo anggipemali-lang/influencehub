@@ -21,9 +21,15 @@ service cloud.firestore {
     // User Profiles
     match /users/{userId} {
       allow get: if isSignedIn();
-      allow list: if isSignedIn() && resource.data.role != 'admin';
-      allow create: if isOwner(userId) && request.resource.data.role in ['brand', 'influencer'];
-      allow update: if isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'uid']);
+      allow list: if isSignedIn() && (resource.data.role != 'admin' || request.auth.token.email == 'anggipemali@gmail.com');
+      allow create: if (isOwner(userId) || request.auth.token.email == 'anggipemali@gmail.com') && (
+        request.resource.data.role in ['brand', 'influencer'] || 
+        (request.resource.data.role == 'admin' && request.auth.token.email == 'anggipemali@gmail.com')
+      );
+      allow update: if (isOwner(userId) || request.auth.token.email == 'anggipemali@gmail.com') && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'uid']) ||
+        (request.auth.token.email == 'anggipemali@gmail.com')
+      );
     }
 
     // Influencer Details
