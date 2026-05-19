@@ -20,9 +20,7 @@ import {
 } from 'lucide-react';
 import MainLayout from '../../components/layout/MainLayout';
 import { createManualProfile, ManualProfileData, approveVerification, rejectVerification } from '../../services/adminService';
-import { auth, db } from '../../lib/firebase';
-import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -32,7 +30,7 @@ const AdminDashboard: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [modalType, setModalType] = useState<'influencer' | 'brand'>('influencer');
   const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(true);
+  const { profile, loading: authLoading } = useAuth();
   const [requests, setRequests] = useState<any[]>([]);
   const navigate = useNavigate();
   const [formData, setFormData] = useState<Partial<ManualProfileData>>({
@@ -42,34 +40,26 @@ const AdminDashboard: React.FC = () => {
   });
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
+    if (!authLoading) {
+      if (!profile) {
         navigate('/login');
         return;
       }
-      
-      const docSnap = await getDoc(doc(db, 'users', user.uid));
-      if (!docSnap.exists() || docSnap.data().role !== 'admin') {
+      if (profile.role !== 'admin') {
         toast.error("Access denied. Admin only.");
         navigate('/');
         return;
       }
-      setChecking(false);
-    });
-    return () => unsubscribe();
-  }, [navigate]);
+    }
+  }, [authLoading, profile, navigate]);
 
   useEffect(() => {
-    if (checking) return;
-
-    const q = query(collection(db, 'users'), where('verificationRequested', '==', true));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setRequests(docs);
-    });
-
-    return () => unsubscribe();
-  }, [checking]);
+    if (authLoading || !profile) return;
+    
+    // In a real app, this would call an API like GET /api/admin/verification-requests
+    // For now returning mock data
+    setRequests([]);
+  }, [authLoading, profile]);
 
   const handleOpenModal = (type: 'influencer' | 'brand') => {
     setModalType(type);
@@ -120,7 +110,7 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  if (checking) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <Loader2 className="w-12 h-12 text-sky-900 animate-spin" />

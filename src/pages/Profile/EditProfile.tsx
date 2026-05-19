@@ -15,44 +15,37 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/layout/Navbar';
-import { auth, db } from '../../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '../../hooks/useAuth';
 import { updateInfluencerProfile, InfluencerStats } from '../../services/profileService';
 import toast from 'react-hot-toast';
 
 const EditProfile: React.FC = () => {
+  const { profile, user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<InfluencerStats>>({});
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      if (!auth.currentUser) {
+    if (!authLoading) {
+      if (!user) {
         navigate('/login');
         return;
       }
-      try {
-        const docSnap = await getDoc(doc(db, 'users', auth.currentUser.uid));
-        if (docSnap.exists()) {
-          setFormData(docSnap.data());
-        }
-      } catch (error) {
-        toast.error("Failed to load profile");
-      } finally {
-        setLoading(false);
+      if (profile) {
+        setFormData(profile);
       }
-    };
-    fetchProfile();
-  }, [navigate]);
+      setLoading(false);
+    }
+  }, [authLoading, user, profile, navigate]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth.currentUser) return;
+    if (!user) return;
 
     setSaving(true);
     try {
-      await updateInfluencerProfile(auth.currentUser.uid, formData);
+      await updateInfluencerProfile(user.uid, formData);
       toast.success("Profile updated successfully!");
       navigate(`/dashboard/${formData.role}`);
     } catch (error) {
@@ -249,10 +242,10 @@ const EditProfile: React.FC = () => {
                 <button 
                   type="button"
                   onClick={async () => {
-                    if (!auth.currentUser) return;
+                    if (!user) return;
                     setSaving(true);
                     try {
-                      await updateInfluencerProfile(auth.currentUser.uid, { verificationRequested: true });
+                      await updateInfluencerProfile(user.uid, { verificationRequested: true });
                       setFormData(prev => ({ ...prev, verificationRequested: true }));
                       toast.success("Verification request sent!");
                     } catch (error) {

@@ -1,111 +1,281 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import cookieParser from "cookie-parser";
+import { GoogleGenAI, Type } from "@google/genai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const JWT_SECRET = process.env.JWT_SECRET || "influencehub-super-secret-key-2024";
+
+// --- AI Initialization ---
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY || "",
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build',
+    }
+  }
+});
+const AI_MODELS = {
+  FLASH: "gemini-3-flash-preview",
+  PRO: "gemini-3.1-pro-preview",
+};
+
+// --- In-Memory Database ---
+// In a real app, use a real database. For this demo, we'll use in-memory storage.
+const db = {
+  users: [] as any[],
+  campaigns: [
+    {
+      id: "c1",
+      title: "Summer Fitness Challenge",
+      description: "We are looking for fitness enthusiasts to promote our new organic protein shake. High engagement is preferred.",
+      brandId: "brand123",
+      brandName: "Vitality Nutrition",
+      budget: 2500,
+      status: "active",
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: "c2",
+      title: "Gaming Laptop Launch",
+      description: "Review our latest ultra-thin gaming laptop. Must have experience with AAA titles.",
+      brandId: "brand456",
+      brandName: "X-Gear Systems",
+      budget: 5000,
+      status: "active",
+      createdAt: new Date().toISOString()
+    }
+  ] as any[],
+  applications: [] as any[],
+  offers: [] as any[],
+  notifications: [] as any[]
+};
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(express.json());
+  app.use(cookieParser());
 
-  // --- Authentication Middleware Concept ---
-  // This middleware would normally verify a Firebase ID token sent in the Authorization header.
+  // --- Authentication Middleware ---
   const authMiddleware = (req: any, res: any, next: any) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: "Unauthorized: Missing or invalid token" });
-    }
-    // Conceptual verification:
-    // const token = authHeader.split(' ')[1];
-    // const decodedToken = await admin.auth().verifyIdToken(token);
-    // req.user = decodedToken;
+    const token = req.headers.authorization?.split(' ')[1] || req.cookies.token;
     
-    // For this design demo, we'll mock a user if a header is present
-    req.user = { uid: "mock-user-id", role: req.headers['x-mock-role'] || "influencer" };
-    next();
+    if (!token) {
+      return res.status(401).json({ error: "Unauthorized: Missing token" });
+    }
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as any;
+      req.user = decoded;
+      next();
+    } catch (err) {
+      return res.status(401).json({ error: "Unauthorized: Invalid token" });
+    }
   };
 
+  // --- Auth API ---
+
+  // Register
+  app.post("/api/auth/register", async (req, res) => {
+    const { email, password, role, displayName } = req.body;
+
+    if (db.users.find(u => u.email === email)) {
+      return res.status(400).json({ error: "User already exists" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = {
+      uid: Math.random().toString(36).substring(7),
+      email,
+      password: hashedPassword,
+      role: email.toLowerCase() === 'anggipemali@gmail.com' ? 'admin' : role,
+      displayName,
+      createdAt: new Date().toISOString()
+    };
+
+    db.users.push(user);
+    
+    const { password: _, ...userWithoutPassword } = user;
+    const token = jwt.sign(userWithoutPassword, JWT_SECRET, { expiresIn: '7d' });
+    
+    res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+    res.status(201).json({ user: userWithoutPassword, token });
+  });
+
+  // Login
+  app.post("/api/auth/login", async (req, res) => {
+    const { email, password } = req.body;
+    const user = db.users.find(u => u.email === email);
+
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const { password: _, ...userWithoutPassword } = user;
+    const token = jwt.sign(userWithoutPassword, JWT_SECRET, { expiresIn: '7d' });
+    
+    res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+    res.json({ user: userWithoutPassword, token });
+  });
+
+  // User Profile
+  app.get("/api/auth/me", authMiddleware, (req: any, res) => {
+    res.json({ user: req.user });
+  });
+
+  // Logout
+  app.post("/api/auth/logout", (req, res) => {
+    res.clearCookie('token');
+    res.json({ message: "Logged out" });
+  });
+
   // --- Campaigns API ---
-
-  // 1. Get all campaigns
   app.get("/api/campaigns", (req, res) => {
-    // Logic: Fetch from Firestore 'campaigns' collection
-    res.json([
-      { id: "c1", title: "Summer Vibes 2024", brandId: "b1", status: "active", budget: 5000 },
-      { id: "c2", title: "Tech Unboxing", brandId: "b2", status: "draft", budget: 2000 }
-    ]);
+    const activeCampaigns = db.campaigns.filter(c => c.status === 'active');
+    res.json(activeCampaigns);
   });
 
-  // 2. Create a campaign (Brand only)
+  app.get("/api/campaigns/brand/:brandId", authMiddleware, (req, res) => {
+    const campaigns = db.campaigns.filter(c => c.brandId === req.params.brandId);
+    res.json(campaigns);
+  });
+
   app.post("/api/campaigns", authMiddleware, (req: any, res) => {
-    if (req.user.role !== 'brand') {
-      return res.status(403).json({ error: "Forbidden: Only brands can create campaigns" });
-    }
-    const { title, description, budget } = req.body;
-    // Logic: Save to Firestore
-    res.status(201).json({ id: "new-id", title, budget, status: "active", createdAt: new Date() });
-  });
-
-  // 3. Update campaign
-  app.patch("/api/campaigns/:id", authMiddleware, (req: any, res) => {
-    const { id } = req.params;
-    // Logic: Check ownership then update
-    res.json({ id, ...req.body, updatedAt: new Date() });
-  });
-
-  // 4. Delete campaign
-  app.delete("/api/campaigns/:id", authMiddleware, (req, res) => {
-    // Logic: Delete from Firestore
-    res.status(204).send();
-  });
-
-  // --- Influencer Application System ---
-
-  // 1. Submit application (Influencer only)
-  app.post("/api/campaigns/:id/apply", authMiddleware, (req: any, res) => {
-    if (req.user.role !== 'influencer') {
-      return res.status(403).json({ error: "Forbidden: Only influencers can apply" });
-    }
-    const { id } = req.params; // campaignId
-    const { message } = req.body;
-    // Logic: Create document in 'applications' collection
-    res.status(201).json({ 
-      id: "a1", 
-      campaignId: id, 
-      influencerId: req.user.uid, 
-      status: "pending", 
-      appliedAt: new Date() 
-    });
-  });
-
-  // 2. Get applications for a campaign (Brand only)
-  app.get("/api/campaigns/:id/applications", authMiddleware, (req, res) => {
-    const { id } = req.params;
-    // Logic: Fetch applications where campaignId == id
-    res.json([
-      { id: "a1", influencerId: "i1", status: "pending", message: "Love your brand!" },
-      { id: "a2", influencerId: "i2", status: "approved", message: "Let's collab!" }
-    ]);
-  });
-
-  // --- Approval/Rejection System ---
-
-  app.post("/api/applications/:id/review", authMiddleware, (req: any, res) => {
-    if (req.user.role !== 'brand') {
+    if (req.user.role !== 'brand' && req.user.role !== 'admin') {
       return res.status(403).json({ error: "Forbidden" });
     }
-    const { id } = req.params;
-    const { status } = req.body; // 'approved' or 'rejected'
-    
-    if (!['approved', 'rejected'].includes(status)) {
-      return res.status(400).json({ error: "Invalid status" });
+    const campaign = {
+      ...req.body,
+      id: Math.random().toString(36).substring(7),
+      brandId: req.user.uid,
+      status: 'active',
+      createdAt: new Date().toISOString()
+    };
+    db.campaigns.push(campaign);
+    res.status(201).json(campaign);
+  });
+
+  // --- Applications API ---
+  app.post("/api/campaigns/:id/apply", authMiddleware, (req: any, res) => {
+    const application = {
+      ...req.body,
+      id: Math.random().toString(36).substring(7),
+      campaignId: req.params.id,
+      influencerId: req.user.uid,
+      status: 'pending',
+      appliedAt: new Date().toISOString()
+    };
+    db.applications.push(application);
+    res.status(201).json(application);
+  });
+
+  app.get("/api/campaigns/:id/applications", authMiddleware, (req, res) => {
+    const applications = db.applications.filter(a => a.campaignId === req.params.id);
+    res.json(applications);
+  });
+
+  app.patch("/api/applications/:id", authMiddleware, (req, res) => {
+    const appIndex = db.applications.findIndex(a => a.id === req.params.id);
+    if (appIndex !== -1) {
+      db.applications[appIndex] = { ...db.applications[appIndex], ...req.body, reviewedAt: new Date().toISOString() };
+      res.json(db.applications[appIndex]);
+    } else {
+      res.status(404).json({ error: "Not found" });
+    }
+  });
+
+  // --- Offers API ---
+  app.post("/api/offers", authMiddleware, (req: any, res) => {
+    const offer = {
+      ...req.body,
+      id: Math.random().toString(36).substring(7),
+      brandId: req.user.uid,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    db.offers.push(offer);
+    res.status(201).json(offer);
+  });
+
+  app.get("/api/offers/influencer/:id", authMiddleware, (req, res) => {
+    const offers = db.offers.filter(o => o.influencerId === req.params.id);
+    res.json(offers);
+  });
+
+  app.get("/api/offers/brand/:id", authMiddleware, (req, res) => {
+    const offers = db.offers.filter(o => o.brandId === req.params.id);
+    res.json(offers);
+  });
+
+  app.patch("/api/offers/:id", authMiddleware, (req: any, res) => {
+    const offerIndex = db.offers.findIndex(o => o.id === req.params.id);
+    if (offerIndex !== -1) {
+      db.offers[offerIndex] = { ...db.offers[offerIndex], ...req.body, respondedAt: new Date().toISOString() };
+      res.json(db.offers[offerIndex]);
+    } else {
+      res.status(404).json({ error: "Not found" });
+    }
+  });
+
+  // --- AI API ---
+  app.post("/api/ai/recommend", authMiddleware, async (req: any, res) => {
+    const { brandDescription, budget, influencers } = req.body;
+
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ error: "AI Service not configured" });
     }
 
-    // Logic: Update application status in Firestore
-    res.json({ id, status, reviewedAt: new Date() });
+    try {
+      const prompt = `
+        As an expert Influencer Marketing Strategist, analyze the following brand and campaign details:
+        Brand/Campaign Description: "${brandDescription}"
+        Budget: $${budget}
+        
+        Available Influencers:
+        ${JSON.stringify(influencers.map((i: any) => ({ 
+          name: i.displayName, 
+          niche: i.niche, 
+          followers: i.followersCount,
+          engagement: i.engagementRate,
+          pricing: i.pricing
+        })))}
+        
+        Recommend the top 3 influencers. Provide Relevance and Match Score (%).
+      `;
+
+      const response = await ai.models.generateContent({
+        model: AI_MODELS.FLASH,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING },
+                relevance: { type: Type.STRING },
+                matchScore: { type: Type.NUMBER }
+              },
+              required: ["name", "relevance", "matchScore"]
+            }
+          }
+        }
+      });
+      
+      const text = response.text || "[]";
+      res.json({ result: JSON.parse(text) });
+    } catch (error) {
+      console.error("AI Error:", error);
+      res.status(500).json({ error: "Failed to generate recommendation" });
+    }
   });
 
   // Vite middleware for development
@@ -130,3 +300,4 @@ async function startServer() {
 }
 
 startServer();
+

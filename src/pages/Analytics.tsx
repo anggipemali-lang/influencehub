@@ -29,8 +29,7 @@ import {
 } from 'recharts';
 import Navbar from '../components/layout/Navbar';
 import { getAnalyticsForUser, AnalyticsSummary } from '../services/analyticsService';
-import { auth, db } from '../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 
 const pieData = [
@@ -43,31 +42,31 @@ const Analytics: React.FC = () => {
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<'brand' | 'influencer'>('influencer');
+  const { profile, user, loading: authLoading } = useAuth();
 
   useEffect(() => {
     const fetchAnalytics = async () => {
-      if (!auth.currentUser) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const userSnap = await getDoc(doc(db, 'users', auth.currentUser.uid));
-        if (userSnap.exists()) {
-          const userRole = userSnap.data().role as 'brand' | 'influencer';
-          setRole(userRole);
-          const data = await getAnalyticsForUser(auth.currentUser.uid, userRole);
-          setAnalytics(data);
+      if (!authLoading) {
+        if (!user || !profile) {
+          setLoading(false);
+          return;
         }
-      } catch (error) {
-        toast.error("Failed to load analytics data");
-      } finally {
-        setLoading(false);
+
+        try {
+          const userRole = profile.role as 'brand' | 'influencer';
+          setRole(userRole);
+          const data = await getAnalyticsForUser(user.uid, userRole);
+          setAnalytics(data);
+        } catch (error) {
+          toast.error("Failed to load analytics data");
+        } finally {
+          setLoading(false);
+        }
       }
     };
 
     fetchAnalytics();
-  }, []);
+  }, [authLoading, user, profile]);
 
   if (loading) {
     return (

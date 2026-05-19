@@ -1,33 +1,39 @@
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
-import { UserProfile } from '../types';
+import { UserProfile } from '../services/authService';
 
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      
-      if (firebaseUser) {
-        const docRef = doc(db, 'users', firebaseUser.uid);
-        const docSnap = await getDoc(docRef);
+    const checkAuth = async () => {
+      try {
+        const storedUser = localStorage.getItem('user');
+        const token = localStorage.getItem('token');
         
-        if (docSnap.exists()) {
-          setProfile(docSnap.data() as UserProfile);
+        if (storedUser && token) {
+          const parsedUser = JSON.parse(storedUser);
+          setProfile(parsedUser);
+          setUser(parsedUser); // Simplified: user and profile are the same in our custom auth
+        } else {
+          setProfile(null);
+          setUser(null);
         }
-      } else {
+      } catch (err) {
+        console.error("Auth check failed", err);
         setProfile(null);
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
-    });
+    };
 
-    return () => unsubscribe();
+    checkAuth();
+    
+    // Listen for storage changes (helpful for multiple tabs)
+    window.addEventListener('storage', checkAuth);
+    return () => window.removeEventListener('storage', checkAuth);
   }, []);
 
   return { user, profile, loading };

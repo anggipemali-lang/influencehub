@@ -21,8 +21,7 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
-import { auth, db } from '../../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '../../hooks/useAuth';
 import { Link } from 'react-router-dom';
 import { getInfluencerOffers, respondToOffer, Offer } from '../../services/campaignService';
 import toast from 'react-hot-toast';
@@ -48,20 +47,15 @@ const StatCard = ({ title, value, icon: Icon, color }: any) => (
 );
 
 const InfluencerDashboard: React.FC = () => {
-  const [profile, setProfile] = useState<any>(null);
+  const { profile, user } = useAuth();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!auth.currentUser) return;
+      if (!user) return;
       try {
-        const docSnap = await getDoc(doc(db, 'users', auth.currentUser.uid));
-        if (docSnap.exists()) {
-          setProfile(docSnap.data());
-        }
-        
-        const offersData = await getInfluencerOffers(auth.currentUser.uid);
+        const offersData = await getInfluencerOffers(user.uid);
         setOffers(offersData);
       } catch (error) {
         console.error(error);
@@ -70,7 +64,7 @@ const InfluencerDashboard: React.FC = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [user]);
 
   const handleRespond = async (offerId: string, status: 'accepted' | 'rejected') => {
     try {

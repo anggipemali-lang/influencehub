@@ -1,9 +1,10 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+// THIS FILE IS MOCKED TO SUPPORT LEGACY IMPORTS WHILE MIGRATING TO CUSTOM AUTH
+export const auth: any = {
+  currentUser: null,
+  signOut: () => Promise.resolve(),
+};
 
-import firebaseConfig from '../../firebase-applet-config.json';
+export const db: any = {};
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const app = {};
+export default app;

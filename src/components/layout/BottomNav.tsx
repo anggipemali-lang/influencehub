@@ -7,26 +7,13 @@ import {
   Calendar,
   User
 } from 'lucide-react';
-import { auth, db } from '../../lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '../../hooks/useAuth';
 
 const BottomNav: React.FC = () => {
   const location = useLocation();
   const path = location.pathname;
-  const [userRole, setUserRole] = useState<string | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      if (u) {
-        const docSnap = await getDoc(doc(db, 'users', u.uid));
-        if (docSnap.exists()) {
-          setUserRole(docSnap.data().role);
-        }
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  const { profile } = useAuth();
+  const userRole = profile?.role || null;
 
   const navItems = [
     { 

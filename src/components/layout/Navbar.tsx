@@ -2,9 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Rocket, Bell, Menu, X, LogOut } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { auth, db } from '../../lib/firebase';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '../../hooks/useAuth';
 import { logout } from '../../services/authService';
 import toast from 'react-hot-toast';
 
@@ -14,26 +12,9 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const { user, profile } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const isDashboard = location.pathname.includes('/dashboard') || location.pathname === '/find';
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        const docSnap = await getDoc(doc(db, 'users', u.uid));
-        if (docSnap.exists()) {
-          setProfile(docSnap.data());
-        }
-      } else {
-        setProfile(null);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
 
   const handleLogout = async () => {
     try {
@@ -59,13 +40,13 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
           <span className="text-2xl font-bold tracking-tight text-slate-900 hidden sm:block uppercase">InfluenceHub</span>
         </Link>
 
-        {/* Desktop Nav - Hidden by request to use hamburger instead */}
-        <div className="hidden lg:flex items-center gap-8 text-sm font-medium text-slate-600 opacity-0 pointer-events-none absolute h-0 overflow-hidden">
-          <Link to="/find" className="hover:text-sky-900 transition-colors">Find Influencers</Link>
-          <Link to="/campaigns" className="hover:text-sky-900 transition-colors">Campaigns</Link>
-          <Link to="/analytics" className="hover:text-sky-900 transition-colors">Analytics</Link>
+        {/* Desktop Nav */}
+        <div className="hidden lg:flex items-center gap-8 text-sm font-black text-slate-500 uppercase tracking-widest">
+          <Link to="/find" className="hover:text-sky-900 transition-colors">Find Talent</Link>
+          <Link to="/campaigns" className="hover:text-sky-900 transition-colors">Marketplace</Link>
+          <Link to="/analytics" className="hover:text-sky-900 transition-colors">Insights</Link>
           {profile?.role === 'admin' && (
-            <Link to="/dashboard/admin" className="text-sky-900 font-bold border-l border-slate-200 pl-8">Admin Panel</Link>
+            <Link to="/dashboard/admin" className="text-sky-900 font-bold border-l border-slate-200 pl-8">Admin</Link>
           )}
         </div>
 

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { loginUser, loginWithGoogle } from '../../services/authService';
+import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 import SimpleCaptcha from '../../components/ui/SimpleCaptcha';
 import Navbar from '../../components/layout/Navbar';
@@ -20,6 +21,8 @@ const Login: React.FC = () => {
   const [isCaptchaValid, setIsCaptchaValid] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  const { user, profile } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,18 +38,12 @@ const Login: React.FC = () => {
 
     setLoading(true);
     try {
-      const profile = await loginUser(email, password);
-      toast.success(`Welcome back, ${profile.displayName}!`);
+      const resp = await loginUser(email, password);
+      toast.success(`Welcome back, ${resp.displayName}!`);
       // Redirect based on role
-      navigate(`/dashboard/${profile.role}`);
+      navigate(`/dashboard/${resp.role}`);
     } catch (error: any) {
-      if (error.code === 'auth/operation-not-allowed') {
-        toast.error("Login method disabled. Please enable Email/Password at: console.firebase.google.com");
-      } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        toast.error("Invalid email or password.");
-      } else {
-        toast.error(error.message || "Failed to login");
-      }
+      toast.error(error.message || "Failed to login");
     } finally {
       setLoading(false);
     }

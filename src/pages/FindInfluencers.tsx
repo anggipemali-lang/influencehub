@@ -33,8 +33,7 @@ import { getAllInfluencers, InfluencerStats } from '../services/profileService';
 import { generateRecommendation } from '../services/aiService';
 import { sendOffer } from '../services/campaignService';
 import MainLayout from '../components/layout/MainLayout';
-import { auth, db } from '../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 
 const FindInfluencers: React.FC = () => {
@@ -48,7 +47,7 @@ const FindInfluencers: React.FC = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<any>(null);
   const [selectedInfluencer, setSelectedInfluencer] = useState<InfluencerStats | null>(null);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const { profile: userProfile, user } = useAuth();
   const [requesting, setRequesting] = useState(false);
 
   useEffect(() => {
@@ -56,13 +55,6 @@ const FindInfluencers: React.FC = () => {
       try {
         const data = await getAllInfluencers();
         setInfluencers(data);
-        
-        if (auth.currentUser) {
-          const profileSnap = await getDoc(doc(db, 'users', auth.currentUser.uid));
-          if (profileSnap.exists()) {
-            setUserProfile(profileSnap.data());
-          }
-        }
       } catch (error) {
         toast.error("Failed to fetch influencers");
       } finally {
@@ -72,9 +64,11 @@ const FindInfluencers: React.FC = () => {
     fetchData();
   }, []);
 
+  const [partnershipMessage, setPartnershipMessage] = useState("We love your content and want to collaborate!");
+
   const handleRequestPartnership = async () => {
     if (!selectedInfluencer) return;
-    if (!auth.currentUser) {
+    if (!user) {
       toast.error("Please login first");
       return;
     }
@@ -83,14 +77,17 @@ const FindInfluencers: React.FC = () => {
       return;
     }
 
-    const message = window.prompt(`Message for ${selectedInfluencer.displayName}:`, "We love your content and want to collaborate!");
-    if (!message) return;
+    if (!partnershipMessage.trim()) {
+      toast.error("Please enter a message");
+      return;
+    }
 
     setRequesting(true);
     try {
-      await sendOffer(selectedInfluencer.uid, message, userProfile.displayName);
+      await sendOffer(selectedInfluencer.uid, partnershipMessage, userProfile.displayName);
       toast.success("Partnership request sent!");
       setSelectedInfluencer(null);
+      setPartnershipMessage("We love your content and want to collaborate!");
     } catch (error) {
       toast.error("Failed to send request");
     } finally {
@@ -108,15 +105,9 @@ const FindInfluencers: React.FC = () => {
 
     setIsAiLoading(true);
     try {
-      const responseText = await generateRecommendation(brandDescription, budget, influencers);
-      if (responseText) {
-        // Try to parse JSON from AI response
-        const jsonMatch = responseText.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-        if (jsonMatch) {
-          setAiResult(JSON.parse(jsonMatch[0]));
-        } else {
-          setAiResult(responseText);
-        }
+      const result = await generateRecommendation(brandDescription, budget, influencers);
+      if (result) {
+        setAiResult(result);
       } else {
         toast.error('Failed to get AI recommendation. Please try again.');
       }
@@ -137,36 +128,38 @@ const FindInfluencers: React.FC = () => {
         </div>
 
         {/* AI Recommendations Banner */}
-        <motion.div 
-          whileHover={{ scale: 1.01 }}
-          className="mb-8 md:mb-12 overflow-hidden relative rounded-[2rem] md:rounded-[2.5rem] bg-gradient-to-br from-[#0C4A6E] via-[#075985] to-[#082F49] p-6 md:p-10 text-white shadow-2xl shadow-sky-900/20"
-        >
-          <div className="relative z-10 max-w-2xl">
-            <div className="flex items-center gap-3 mb-4 md:mb-6">
-              <div className="p-2 bg-sky-400/20 rounded-xl backdrop-blur-sm border border-white/10">
-                <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-sky-300" />
+        {userProfile?.role === 'brand' && (
+          <motion.div 
+            whileHover={{ scale: 1.01 }}
+            className="mb-8 md:mb-12 overflow-hidden relative rounded-[2rem] md:rounded-[2.5rem] bg-gradient-to-br from-[#0C4A6E] via-[#075985] to-[#082F49] p-6 md:p-10 text-white shadow-2xl shadow-sky-900/20"
+          >
+            <div className="relative z-10 max-w-2xl">
+              <div className="flex items-center gap-3 mb-4 md:mb-6">
+                <div className="p-2 bg-sky-400/20 rounded-xl backdrop-blur-sm border border-white/10">
+                  <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-sky-300" />
+                </div>
+                <span className="text-sky-300 font-bold text-[10px] md:text-xs uppercase tracking-[0.2em]">AI Intelligence</span>
               </div>
-              <span className="text-sky-300 font-bold text-[10px] md:text-xs uppercase tracking-[0.2em]">AI Intelligence</span>
+              <h2 className="text-3xl md:text-5xl font-bold mb-4 md:mb-6 leading-tight">Match with AI Precision</h2>
+              <p className="text-sky-100/80 text-sm md:text-lg mb-6 md:mb-8 leading-relaxed">Stop guessing. Let our proprietary AI engine scan through thousands of influencers to find the ones that perfectly align with your brand values.</p>
+              <button 
+                onClick={() => setIsAiModalOpen(true)}
+                className="w-full sm:w-auto bg-sky-400 text-sky-950 font-bold px-8 py-3 md:py-4 rounded-xl md:rounded-2xl hover:bg-white transition-all shadow-xl shadow-sky-400/20 flex items-center justify-center gap-3 group"
+              >
+                Launch AI Matchmaker
+                <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </button>
             </div>
-            <h2 className="text-3xl md:text-5xl font-bold mb-4 md:mb-6 leading-tight">Match with AI Precision</h2>
-            <p className="text-sky-100/80 text-sm md:text-lg mb-6 md:mb-8 leading-relaxed">Stop guessing. Let our proprietary AI engine scan through thousands of influencers to find the ones that perfectly align with your brand values.</p>
-            <button 
-              onClick={() => setIsAiModalOpen(true)}
-              className="w-full sm:w-auto bg-sky-400 text-sky-950 font-bold px-8 py-3 md:py-4 rounded-xl md:rounded-2xl hover:bg-white transition-all shadow-xl shadow-sky-400/20 flex items-center justify-center gap-3 group"
-            >
-              Launch AI Matchmaker
-              <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
-          {/* Decorative elements */}
-          <div className="absolute top-0 right-0 w-1/2 h-full opacity-20 hidden lg:block">
-            <div className="absolute top-10 right-10 w-64 h-64 border-4 border-sky-400 rounded-full blur-3xl" />
-            <div className="absolute bottom-10 right-40 w-48 h-48 border-2 border-white rounded-full blur-2xl" />
-          </div>
-          <div className="absolute right-20 top-1/2 -translate-y-1/2 hidden lg:block">
-            <BrainCircuit className="w-64 h-64 text-sky-400 opacity-10" />
-          </div>
-        </motion.div>
+            {/* Decorative elements */}
+            <div className="absolute top-0 right-0 w-1/2 h-full opacity-20 hidden lg:block">
+              <div className="absolute top-10 right-10 w-64 h-64 border-4 border-sky-400 rounded-full blur-3xl" />
+              <div className="absolute bottom-10 right-40 w-48 h-48 border-2 border-white rounded-full blur-2xl" />
+            </div>
+            <div className="absolute right-20 top-1/2 -translate-y-1/2 hidden lg:block">
+              <BrainCircuit className="w-64 h-64 text-sky-400 opacity-10" />
+            </div>
+          </motion.div>
+        )}
 
         {/* Filters bar */}
         <div className="bg-white p-4 md:p-5 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-slate-100 mb-8 md:mb-10 flex flex-col md:flex-row items-stretch md:items-center gap-4 md:gap-6">
@@ -380,25 +373,43 @@ const FindInfluencers: React.FC = () => {
                          <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
                          Top AI Recommendations
                        </h3>
-                       <div className="space-y-3">
+                       <div className="space-y-4">
                          {(Array.isArray(aiResult) ? aiResult : []).length > 0 ? (
-                           aiResult.map((item: any, i: number) => (
-                             <div key={i} className="bg-white p-3 md:p-5 rounded-xl md:rounded-2xl border border-slate-100 flex items-center justify-between gap-2">
-                               <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
-                                 <div className="shrink-0 w-10 h-10 md:w-12 md:h-12 bg-sky-100 rounded-lg md:rounded-xl flex items-center justify-center text-sky-900 font-bold text-lg md:text-xl">
-                                   {i + 1}
+                           aiResult.map((item: any, i: number) => {
+                             const influencer = influencers.find(inf => inf.displayName === item.name);
+                             return (
+                               <div key={i} className="bg-white p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:border-sky-200 transition-all shadow-sm">
+                                 <div className="flex items-center gap-4">
+                                   <div className="shrink-0 w-12 h-12 md:w-16 md:h-16 bg-sky-900 rounded-2xl flex items-center justify-center text-white font-black text-xl md:text-2xl shadow-lg shadow-sky-900/10">
+                                     {i + 1}
+                                   </div>
+                                   <div className="overflow-hidden">
+                                     <h4 className="font-black text-slate-900 text-base md:text-lg truncate group-hover:text-sky-900 transition-colors uppercase tracking-tight">{item.name}</h4>
+                                     <p className="text-[10px] md:text-xs text-slate-500 font-medium italic border-l-2 border-sky-500 pl-2 mt-1">{item.relevance || 'Strategic Alignment'}</p>
+                                   </div>
                                  </div>
-                                 <div className="overflow-hidden">
-                                   <p className="font-bold text-slate-900 text-sm md:text-base truncate">{item.name}</p>
-                                   <p className="text-[10px] md:text-xs text-slate-500 truncate">{item.relevance || 'Niche Match'}</p>
+                                 <div className="flex items-center gap-6 md:gap-10">
+                                   <div className="text-right">
+                                     <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Match</p>
+                                     <p className="text-lg md:text-2xl font-black text-sky-900">{item.matchScore || item.score}%</p>
+                                   </div>
+                                   <button 
+                                     onClick={() => {
+                                       if (influencer) {
+                                         setSelectedInfluencer(influencer);
+                                         setIsAiModalOpen(false);
+                                       } else {
+                                         toast.error("Profile not found in database");
+                                       }
+                                     }}
+                                     className="bg-slate-900 text-white rounded-xl px-5 py-3 font-bold text-xs uppercase tracking-widest hover:bg-sky-900 transition-all"
+                                   >
+                                     View profile
+                                   </button>
                                  </div>
                                </div>
-                               <div className="text-right shrink-0">
-                                 <p className="text-[8px] md:text-xs font-bold text-slate-400 uppercase leading-none md:mb-1">Score</p>
-                                 <p className="text-base md:text-xl font-bold text-sky-900">{item.matchScore || item.score}%</p>
-                                </div>
-                             </div>
-                           ))
+                             );
+                           })
                          ) : (
                             <div className="text-slate-800 text-sm prose max-w-none prose-p:text-xs md:prose-p:text-sm">
                                {typeof aiResult === 'string' ? aiResult : 'Analysis complete. Review the best matches below.'}
@@ -575,6 +586,19 @@ const FindInfluencers: React.FC = () => {
                            <p className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
                               Real-time post analysis indicates high conversion in <span className="text-sky-900">Lifestyle & E-commerce</span> categories.
                            </p>
+                        </div>
+                     </div>
+
+                     <div className="space-y-4 mb-8">
+                        <div>
+                           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Collaboration Message</label>
+                           <textarea 
+                              value={partnershipMessage}
+                              onChange={(e) => setPartnershipMessage(e.target.value)}
+                              rows={3}
+                              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-sky-300 transition-all font-sans font-medium text-sm resize-none"
+                              placeholder="Describe your collaboration idea..."
+                           />
                         </div>
                      </div>
 

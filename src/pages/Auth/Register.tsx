@@ -53,13 +53,7 @@ const Register: React.FC = () => {
       toast.success("Account created successfully!");
       navigate(`/dashboard/${profile.role}`);
     } catch (error: any) {
-      if (error.code === 'auth/operation-not-allowed') {
-        toast.error("Sign-up method disabled. Please enable Email/Password at: console.firebase.google.com");
-      } else if (error.code === 'auth/email-already-in-use') {
-        toast.error("An account with this email already exists. Please log in instead.");
-      } else {
-        toast.error(error.message || "Registration failed");
-      }
+      toast.error(error.message || "Registration failed");
     } finally {
       setLoading(false);
     }

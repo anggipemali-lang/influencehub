@@ -14,15 +14,22 @@ import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/layout/Navbar';
 import { createCampaign } from '../../services/campaignService';
 import toast from 'react-hot-toast';
-import { auth, db } from '../../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '../../hooks/useAuth';
 
 const CreateCampaign: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [budget, setBudget] = useState('');
   const [loading, setLoading] = useState(false);
+  const { profile, user } = useAuth();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (user && profile && profile.role !== 'brand' && profile.role !== 'admin') {
+      toast.error("Only brands can create campaigns");
+      navigate('/dashboard/influencer');
+    }
+  }, [user, profile, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,8 +40,7 @@ const CreateCampaign: React.FC = () => {
 
     setLoading(true);
     try {
-      const userSnap = await getDoc(doc(db, 'users', auth.currentUser!.uid));
-      const brandName = userSnap.exists() ? userSnap.data().displayName : 'Brand';
+      const brandName = profile?.displayName || 'Brand';
 
       await createCampaign({
         title,

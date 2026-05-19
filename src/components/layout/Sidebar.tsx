@@ -14,9 +14,7 @@ import {
   Github
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { auth, db } from '../../lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '../../hooks/useAuth';
 import { logout } from '../../services/authService';
 import toast from 'react-hot-toast';
 
@@ -45,19 +43,8 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const path = location.pathname;
-  const [userRole, setUserRole] = useState<string | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      if (u) {
-        const docSnap = await getDoc(doc(db, 'users', u.uid));
-        if (docSnap.exists()) {
-          setUserRole(docSnap.data().role);
-        }
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  const { profile } = useAuth();
+  const userRole = profile?.role || null;
 
   const handleLogout = async () => {
     try {

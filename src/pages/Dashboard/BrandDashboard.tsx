@@ -21,8 +21,7 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import { getBrandCampaigns, getCampaignApplications, reviewApplication, Campaign, CampaignApplication, getBrandOffers, Offer } from '../../services/campaignService';
-import { auth, db } from '../../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '../../hooks/useAuth';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -54,23 +53,19 @@ const BrandDashboard: React.FC = () => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [applications, setApplications] = useState<CampaignApplication[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
-  const [profile, setProfile] = useState<any>(null);
+  const { profile, user } = useAuth();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!auth.currentUser) return;
+      if (!user) return;
       try {
-        const [campaignData, profileSnap, offersData] = await Promise.all([
-          getBrandCampaigns(auth.currentUser.uid),
-          getDoc(doc(db, 'users', auth.currentUser.uid)),
-          getBrandOffers(auth.currentUser.uid)
+        const [campaignData, offersData] = await Promise.all([
+          getBrandCampaigns(user.uid),
+          getBrandOffers(user.uid)
         ]);
         setCampaigns(campaignData);
         setOffers(offersData);
-        if (profileSnap.exists()) {
-          setProfile(profileSnap.data());
-        }
 
         // Fetch applications for all brand campaigns
         if (campaignData.length > 0) {
@@ -86,7 +81,7 @@ const BrandDashboard: React.FC = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [user]);
 
   const handleReview = async (appId: string, status: 'approved' | 'rejected') => {
     try {

@@ -14,14 +14,13 @@ import {
 } from 'lucide-react';
 import Navbar from '../../components/layout/Navbar';
 import { getCampaigns, applyToCampaign, Campaign } from '../../services/campaignService';
-import { auth, db } from '../../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 
 const CampaignMarketplace: React.FC = () => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const { profile: userProfile, user } = useAuth();
   const [applyingId, setApplyingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,13 +28,6 @@ const CampaignMarketplace: React.FC = () => {
       try {
         const data = await getCampaigns();
         setCampaigns(data);
-        
-        if (auth.currentUser) {
-          const profileSnap = await getDoc(doc(db, 'users', auth.currentUser.uid));
-          if (profileSnap.exists()) {
-            setUserProfile(profileSnap.data());
-          }
-        }
       } catch (error) {
         console.error("Failed to fetch campaigns", error);
         toast.error("Global error fetching campaigns");
@@ -47,7 +39,7 @@ const CampaignMarketplace: React.FC = () => {
   }, []);
 
   const handleApply = async (campaignId: string) => {
-    if (!auth.currentUser) {
+    if (!user) {
       toast.error("Please login to apply");
       return;
     }

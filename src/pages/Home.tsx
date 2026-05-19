@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Rocket, Target, Users, Search, BarChart3, ShieldCheck } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 import Navbar from '../components/layout/Navbar';
 
@@ -27,8 +28,8 @@ const Home: React.FC = () => {
               An intelligent platform that helps brands discover the best influencers based on niche, engagement, audience insights, and campaign budget.
             </p>
             <div className="flex flex-wrap gap-4">
-              <button className="btn-primary text-lg">Find Influencers</button>
-              <button className="btn-secondary text-lg">Start Campaign</button>
+              <Link to="/find" className="btn-primary text-lg">Find Influencers</Link>
+              <Link to="/campaigns/create" className="btn-secondary text-lg">Start Campaign</Link>
             </div>
           </motion.div>
           <motion.div
